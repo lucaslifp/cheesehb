@@ -1,0 +1,98 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-pt-sans), sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 30 17% 97%; /* #F8F6F4 - Cinza claro (fundo neutro) */
+    --foreground: 0 0% 18%; /* #2E2E2E - Cinza escuro (texto primário) */
+    --card: 0 0% 100%; /* #FFFFFF - Branco puro (contraste em cartões) */
+    --card-foreground: 0 0% 18%; /* #2E2E2E - Texto em cartões */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 18%;
+    --primary: 0 69% 50%; /* #D62828 - Vermelho (ação, apetite) */
+    --primary-foreground: 0 0% 98%; /* Branco para texto em botões primários */
+    --secondary: 30 15% 92%; /* #F0EDE9 - Tom mais escuro que o background */
+    --secondary-foreground: 0 0% 18%; /* Texto em secundário */
+    --muted: 30 15% 88%; /* #E6E1DD - Tom para descrições */
+    --muted-foreground: 0 0% 40%; /* #666666 - Texto para muted */
+    --accent: 47 100% 50%; /* #FEC601 - Amarelo (atenção, destaque) */
+    --accent-foreground: 0 0% 18%; /* #2E2E2E - Texto em accent */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 15% 90%; /* #EBE8E5 - Borda sutil */
+    --input: 30 15% 90%; /* Similar à borda */
+    --ring: 0 69% 50%; /* Cor primária para anel de foco */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+
+    /* Sidebar Light Theme */
+    --sidebar-background: 0 0% 100%; /* #FFFFFF - Fundo branco para sidebar */
+    --sidebar-foreground: 0 0% 18%; /* #2E2E2E - Texto escuro na sidebar */
+    --sidebar-primary: 0 69% 50%; /* #D62828 - Cor primária para itens ativos/hover */
+    --sidebar-primary-foreground: 0 0% 98%; /* Branco para texto em itens ativos */
+    --sidebar-accent: 30 10% 95%; /* #F5F2F0 - Cor de destaque sutil para hover/seleção */
+    --sidebar-accent-foreground: 0 0% 18%; /* #2E2E2E - Texto em destaque na sidebar */
+    --sidebar-border: 30 15% 90%; /* #EBE8E5 - Borda da sidebar */
+    --sidebar-ring: 0 69% 50%; /* Cor primária para anel de foco na sidebar */
+  }
+
+  .dark {
+    --background: 0 0% 10%; /* #1A1A1A - Fundo escuro */
+    --foreground: 30 17% 97%; /* #F8F6F4 - Texto claro */
+    --card: 0 0% 12%; /* #1F1F1F - Cartões um pouco mais claros que o fundo */
+    --card-foreground: 30 17% 97%; /* #F8F6F4 - Texto claro em cartões */
+    --popover: 0 0% 12%;
+    --popover-foreground: 30 17% 97%;
+    --primary: 0 69% 50%; /* #D62828 - Vermelho (mantém do light) */
+    --primary-foreground: 0 0% 98%; /* Branco para texto em botões primários */
+    --secondary: 0 0% 15%; /* #262626 - Tom mais escuro que o card */
+    --secondary-foreground: 30 17% 97%; /* Texto claro em secundário */
+    --muted: 0 0% 20%; /* #333333 - Tom para descrições */
+    --muted-foreground: 30 10% 65%; /* #A29C97 - Texto para muted */
+    --accent: 47 100% 50%; /* #FEC601 - Amarelo (mantém do light) */
+    --accent-foreground: 0 0% 18%; /* #2E2E2E - Texto escuro em accent (bom contraste) */
+    --destructive: 0 70% 45%; /* #B32424 - Vermelho destrutivo um pouco mais escuro */
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%; /* #333333 - Borda escura */
+    --input: 0 0% 20%; /* Similar à borda */
+    --ring: 0 69% 50%; /* Cor primária para anel de foco */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    /* Sidebar Dark Theme */
+    --sidebar-background: 0 0% 8%; /* #141414 - Fundo da sidebar ainda mais escuro */
+    --sidebar-foreground: 30 17% 97%; /* #F8F6F4 - Texto claro na sidebar */
+    --sidebar-primary: 0 69% 50%; /* #D62828 - Cor primária para itens ativos/hover */
+    --sidebar-primary-foreground: 0 0% 98%; /* Branco para texto em itens ativos */
+    --sidebar-accent: 0 0% 15%; /* #262626 - Cor de destaque sutil para hover/seleção */
+    --sidebar-accent-foreground: 30 17% 97%; /* #F8F6F4 - Texto claro em destaque na sidebar */
+    --sidebar-border: 0 0% 20%; /* #333333 - Borda da sidebar */
+    --sidebar-ring: 0 69% 50%; /* Cor primária para anel de foco na sidebar */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Animações de piscar removidas */
+}
