@@ -1,91 +1,207 @@
-
-// src/app/admin/pizzas/nova/page.tsx
-
 "use client";
 
-import { ProdutoForm } from '@/components/admin/produtos/ProdutoForm';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { useState } from 'react';
-import type { ProdutoCreate } from '@/schemas'; // Import Zod-derived type
+import { supabaseBrowserClient } from "@/lib/supabaseBrowserClient";
 
-export default function AdicionarPizzaBasePage() {
+/* ─────────────────────────────────────────── */
+
+export default function NovaPizzaPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
 
-  // The type of `data` here should align with what ProdutoForm's onSubmit provides,
-  // which should be compatible with ProdutoCreate.
-  const handleSubmit = async (data: Omit<ProdutoCreate, "id">) => {
-    setIsLoading(true);
+  /* campos */
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [tituloModal, setTituloModal] = useState("Monte sua Pizza");
 
-    // Ensure `is_personalizable_pizza` is true and `preco_base` is omitted for API call
-    const payload: ProdutoCreate = {
-      ...data,
-      is_personalizable_pizza: true,
-      preco_base: undefined, // Explicitly set to undefined to be omitted by JSON.stringify
-    };
-    
-    // The `tipo_pizza` and `available_sizes` should be correctly set by ProdutoForm for personalizable pizzas
-    // and will be part of the `data` object, then included in `payload`.
+  /* imagem + preview */
+  const [fileImg, setFileImg] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
-    try {
-      const response = await fetch('/api/admin/produtos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload), 
-      });
+  /* categoria e tamanho */
+  const [categoriaId, setCategoriaId] = useState<string | null>(null);
+  const [tamanho, setTamanho] = useState<"pequena" | "grande">("grande");
 
-      const responseData = await response.json();
+  /* ─────────────────────────────────────────── */
+  /* carrega / cria categoria “Pizzas”           */
+  useEffect(() => {
+    (async () => {
+      const sb = supabaseBrowserClient;
+      const { data } = await sb.from("categorias").select("id,nome");
+      let cat = data?.find((c) => c.nome === "Pizzas");
 
-      if (!response.ok) {
-        let apiErrorMessage = responseData?.error || `Erro ${response.status} ao cadastrar pizza base.`;
-        let apiErrorDetails = "";
-
-        if (responseData?.details) {
-          if (typeof responseData.details === 'string') {
-            apiErrorDetails = responseData.details;
-          } else if (responseData.details.fieldErrors) { 
-            apiErrorDetails = Object.entries(responseData.details.fieldErrors)
-              // @ts-ignore
-              .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
-              .join('; ');
-          } else { 
-            apiErrorDetails = JSON.stringify(responseData.details);
-          }
-        } else if (responseData?.error && !responseData.details) { 
-            apiErrorDetails = responseData.error;
+      if (!cat) {
+        const { data: nova, error } = await sb
+          .from("categorias")
+          .insert({
+            nome: "Pizzas",
+            ordem: 0,
+            mostrar_nos_filtros_homepage: true,
+          })
+          .select("id")
+          .single();
+        if (error) {
+          toast({ title: "Erro ao criar categoria", variant: "destructive" });
+          return;
         }
-
-        if (!responseData?.error && !responseData?.details && response.status !== 201 && response.status !== 200) {
-            const errorText = await response.text().catch(() => 'Corpo da resposta de erro não pôde ser lido.');
-            apiErrorMessage = `Erro ${response.status}: ${errorText.substring(0, 200)}${errorText.length > 200 ? '...' : ''}`;
-        }
-        throw new Error(apiErrorDetails ? `${apiErrorMessage} Detalhes: ${apiErrorDetails}` : apiErrorMessage);
+        cat = nova;
       }
+      if (cat) setCategoriaId(cat.id);
+    })();
+  }, []);
 
+  /* preview da imagem */
+  function onSelectFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] || null;
+    setFileImg(f);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  }
+
+  /* ─────────────────────────────────────────── */
+  async function handleSubmit() {
+    if (!nome || !fileImg) {
       toast({
-        title: "Pizza Base Cadastrada!",
-        description: `A opção de pizza base "${data.nome}" foi cadastrada com sucesso.`,
+        title: "Nome e imagem são obrigatórios",
+        variant: "destructive",
       });
-
-      router.push('/admin/pizzas');
-      router.refresh();
-    } catch (error: any) {
-      console.error("Erro ao cadastrar pizza base:", error);
-      toast({ title: "Erro ao Cadastrar", description: error.message, variant: "destructive", duration: 10000 });
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  };
 
+    const sb = supabaseBrowserClient;
+
+    /* cria registro da pizza */
+    const { data: pizza, error } = await sb
+      .from("pizzas_personalizaveis")
+      .insert({
+        nome,
+        descricao,
+        titulo_modal_personalizacao: tituloModal,
+        categoria_id: categoriaId,
+        tamanho_pizza: tamanho, // pequena | grande
+        tipo_pizza: "mista", // valor obrigatório
+      })
+      .select("id")
+      .single();
+
+    if (error || !pizza) {
+      toast({
+        title: "Erro ao cadastrar pizza",
+        description: error?.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    /* upload da imagem */
+    const path = `pizzas/${pizza.id}.png`;
+    const { error: upErr } = await sb.storage
+      .from("public-assets")
+      .upload(path, fileImg, { upsert: true });
+
+    if (upErr) {
+      toast({
+        title: "Erro no upload da imagem",
+        description: upErr.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const imgUrl = sb.storage.from("public-assets").getPublicUrl(path)
+      .data.publicUrl;
+    await sb
+      .from("pizzas_personalizaveis")
+      .update({ imagem_url: imgUrl })
+      .eq("id", pizza.id);
+
+    toast({ title: "Pizza cadastrada com sucesso!" });
+    router.push("/admin/pizzas");
+  }
+
+  /* ─────────────────────────────────────────── */
   return (
-    <div>
-      <ProdutoForm
-        onSubmit={handleSubmit as any} // Cast to any if type mismatch, but should be compatible
-        isLoading={isLoading}
-        isEditMode={false}
-        initialProductType="pizza_personalizavel"
-      />
+    <div className="max-w-3xl mx-auto p-8">
+      <h1 className="text-xl font-bold">Cadastrar Nova Pizza</h1>
+
+      <div className="space-y-4 mt-6">
+        {/* Nome */}
+        <div>
+          <Label>Nome *</Label>
+          <Input
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Descrição */}
+        <div>
+          <Label>Descrição</Label>
+          <Textarea
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        {/* Imagem + preview */}
+        <div>
+          <Label>Imagem *</Label>
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={onSelectFile}
+            required
+          />
+          {preview && (
+            <img
+              src={preview}
+              alt="Pré-visualização"
+              className="mt-3 h-32 w-auto rounded-md border"
+            />
+          )}
+        </div>
+
+        {/* Tamanho */}
+        <div>
+          <Label>Tamanho *</Label>
+          <select
+            value={tamanho}
+            onChange={(e) => setTamanho(e.target.value as "pequena" | "grande")}
+            className="w-full border rounded-md py-2 px-3"
+            required
+          >
+            <option value="pequena">Pequena Mista</option>
+            <option value="grande">Grande Mista</option>
+          </select>
+        </div>
+
+        {/* Título do modal */}
+        <div>
+          <Label>Título do Modal *</Label>
+          <Input
+            value={tituloModal}
+            onChange={(e) => setTituloModal(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Ações */}
+        <div className="flex gap-2 mt-4">
+          <Button onClick={handleSubmit}>Salvar Pizza</Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/pizzas")}
+          >
+            Cancelar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

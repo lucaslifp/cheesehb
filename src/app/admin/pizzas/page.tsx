@@ -1,63 +1,98 @@
 import Link from "next/link";
+import Image from "next/image";
+import { supabaseServerClient } from "@/lib/supabaseServerClient";
+import TogglePizzaAtivo from "@/components/admin/TogglePizzaAtivo";
+import PizzaActionButtons from "@/components/admin/PizzaActionButtons";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
-import { supabaseServerClient as supabase } from "@/lib/supabaseServerClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPizzasPage() {
-  const { data: pizzas, error } = await supabase
+interface PizzaRow {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  imagem_url: string | null;
+}
+
+export default async function PizzasAdminPage() {
+  const { data: pizzas } = await supabaseServerClient
     .from("pizzas_personalizaveis")
-    .select("id, nome, ativo")
+    .select("id, nome, ativo, imagem_url")
     .order("created_at", { ascending: false });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Pizzas (Personalizáveis)</h1>
-        <Button asChild>
-          <Link href="/admin/pizzas/nova">Adicionar Nova Pizza</Link>
-        </Button>
+    <div className="max-w-7xl mx-auto px-4 py-12">
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Pizzas&nbsp;(Personalizáveis)</h1>
+
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/admin/pizzas/sabores-pizza">
+              Gerenciar&nbsp;Sabores
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/pizzas/bordas-pizza">Gerenciar&nbsp;Bordas</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/admin/pizzas/nova">
+              Adicionar&nbsp;Nova&nbsp;Pizza
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted">
-            <tr className="text-left">
-              <th className="py-2 px-4">Nome</th>
-              <th className="py-2 px-4">Ativo</th>
-              <th className="py-2 px-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pizzas?.map((pizza) => (
-              <tr
-                key={pizza.id}
-                className="border-t border-border hover:bg-muted/40"
-              >
-                <td className="py-2 px-4 font-medium">{pizza.nome}</td>
-                <td className="py-2 px-4">{pizza.ativo ? "Sim" : "Não"}</td>
-                <td className="py-2 px-4 text-right">
-                  <Link href={`/admin/pizzas/${pizza.id}/editar`}>
-                    <Button variant="outline" size="sm">
-                      <Pencil className="w-4 h-4 mr-1" /> Editar
-                    </Button>
-                  </Link>
-                </td>
+      {/* Tabela */}
+      <div className="mt-8">
+        {pizzas && pizzas.length ? (
+          <table className="w-full table-auto">
+            <thead>
+              <tr className="bg-gray-100 text-sm">
+                <th className="p-3 text-left">Imagem</th>
+                <th className="p-3 text-left">Nome</th>
+                <th className="p-3 text-left">Ativo</th>
+                <th className="p-3 text-left">Ações</th>
               </tr>
-            ))}
-            {pizzas?.length === 0 && (
-              <tr>
-                <td
-                  colSpan={3}
-                  className="py-4 px-4 text-center text-muted-foreground"
-                >
-                  Nenhuma pizza cadastrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {pizzas.map((pizza: PizzaRow) => (
+                <tr key={pizza.id} className="border-b">
+                  <td className="p-3">
+                    {pizza.imagem_url && (
+                      <Image
+                        src={pizza.imagem_url}
+                        alt={pizza.nome}
+                        width={64}
+                        height={64}
+                        className="rounded-md object-cover"
+                      />
+                    )}
+                  </td>
+
+                  <td className="p-3">{pizza.nome}</td>
+
+                  <td className="p-3">
+                    <TogglePizzaAtivo
+                      id={pizza.id}
+                      ativoInicial={pizza.ativo}
+                    />
+                  </td>
+
+                  <td className="p-3">
+                    {/* Botões interativos (client component) */}
+                    <PizzaActionButtons id={pizza.id} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-center p-8 text-muted-foreground">
+            Nenhuma pizza cadastrada.
+          </p>
+        )}
       </div>
     </div>
   );
