@@ -1,108 +1,155 @@
+// src/app/api/admin/grupos-opcionais/route.ts
+//------------------------------------------------------------
+//  Rotas REST para Grupos Opcionais e seus Itens
+//------------------------------------------------------------
+import { NextResponse, type NextRequest } from "next/server";
+import { supabaseServerClient as supabase } from "@/lib/supabaseServerClient";
+import { z } from "zod";
+import type { ItemOpcional, TipoSelecaoGrupo } from "@/types";
 
-import { NextResponse, type NextRequest } from 'next/server';
-import { supabaseServerClient as supabase } from '@/lib/supabaseServerClient';
-import { z } from 'zod';
-import type { ItemOpcional, TipoSelecaoGrupo } from '@/types';
-
-const ItemOpcionalCreateSchema = z.object({
-  id: z.string().uuid().optional(), // Opcional para novos itens
-  nome: z.string().min(1, "Nome do item é obrigatório."),
-  preco_adicional: z.coerce.number().min(0, "Preço adicional deve ser zero ou positivo."),
-  produto_original_id: z.string().uuid().optional().nullable(),
-  default_selecionado: z.boolean().default(false),
-  ordem: z.number().int().default(0),
-  ativo: z.boolean().default(true),
-});
+/* ------------------------------------------------------------------
+ * VALIDATION – Zod
+ * -----------------------------------------------------------------*/
+const ItemOpcionalCreateSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    /** Nome é obrigatório **somente** quando NÃO há produto_original_id */
+    nome: z.string().min(1).optional().nullable(),
+    preco_adicional: z.coerce
+      .number()
+      .min(0, "Preço adicional deve ser zero ou positivo."),
+    produto_original_id: z.string().uuid().optional().nullable(),
+    default_selecionado: z.boolean().default(false),
+    ordem: z.number().int().default(0),
+    ativo: z.boolean().default(true),
+  })
+  .refine((v) => (v.produto_original_id ? true : !!v.nome?.trim()), {
+    message:
+      "Nome do item é obrigatório quando não há produto original vinculado.",
+  });
 
 const GrupoOpcionalCreateSchema = z.object({
   nome: z.string().min(1, "Nome do grupo é obrigatório."),
-  tipo_selecao: z.enum(['RADIO_OBRIGATORIO', 'CHECKBOX_OPCIONAL_MULTI', 'CHECKBOX_OBRIGATORIO_MULTI']),
+  tipo_selecao: z.enum([
+    "RADIO_OBRIGATORIO",
+    "CHECKBOX_OPCIONAL_MULTI",
+    "CHECKBOX_OBRIGATORIO_MULTI",
+  ]),
   min_selecoes: z.coerce.number().int().optional().nullable(),
   max_selecoes: z.coerce.number().int().optional().nullable(),
   instrucao: z.string().optional().nullable(),
   ordem: z.number().int().default(0),
   ativo: z.boolean().default(true),
-  itens: z.array(ItemOpcionalCreateSchema).min(1, "O grupo deve ter pelo menos um item."),
+  itens: z
+    .array(ItemOpcionalCreateSchema)
+    .min(1, "O grupo deve ter pelo menos um item."),
 });
 
-
+/* ------------------------------------------------------------------
+ * GET  /api/admin/itens-opcionais
+ * -----------------------------------------------------------------*/
 export async function GET() {
   try {
-    const { data: grupos, error: gruposError } = await supabase
-      .from('grupos_opcionais')
-      .select(`
-        *,
-        itens_opcionais (
-          *
-        )
-      `)
-      .order('ordem', { ascending: true })
-      .order('ordem', { foreignTable: 'itens_opcionais', ascending: true });
+    const { data, error } = await supabase
+      .from("grupos_opcionais")
+      .select(
+        `*,
+         itens_opcionais ( * )`
+      )
+      .order("ordem", { ascending: true })
+      .order("ordem", {
+        foreignTable: "itens_opcionais",
+        ascending: true,
+      });
 
-    if (gruposError) {
-      console.error('Erro ao buscar grupos opcionais:', gruposError);
-      return NextResponse.json({ error: gruposError.message }, { status: 500 });
+    if (error) {
+      console.error("Erro ao buscar grupos_opcionais:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(grupos);
+    return NextResponse.json(data);
   } catch (e) {
-    console.error('Erro inesperado no GET de grupos_opcionais:', e);
-    return NextResponse.json({ error: 'Erro interno do servidor.' }, { status: 500 });
+    console.error("Erro inesperado no GET grupos_opcionais:", e);
+    return NextResponse.json(
+      { error: "Erro interno do servidor." },
+      { status: 500 }
+    );
   }
 }
 
+/* ------------------------------------------------------------------
+ * POST  /api/admin/itens-opcionais      (criar grupo + itens)
+ * -----------------------------------------------------------------*/
 export async function POST(request: NextRequest) {
   try {
-    const json = await request.json();
-    const parsedData = GrupoOpcionalCreateSchema.safeParse(json);
+    const body = await request.json();
+    const parsed = GrupoOpcionalCreateSchema.safeParse(body);
 
-    if (!parsedData.success) {
-      return NextResponse.json({ error: 'Dados de entrada inválidos para o grupo.', details: parsedData.error.flatten() }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Dados de entrada inválidos.",
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
     }
 
-    const { itens, ...grupoData } = parsedData.data;
+    const { itens, ...grupoData } = parsed.data;
 
-    // 1. Criar o grupo
-    const { data: newGrupo, error: grupoError } = await supabase
-      .from('grupos_opcionais')
+    /* 1️⃣  Inserir grupo --------------------------------------------------*/
+    const { data: grupo, error: grupoErr } = await supabase
+      .from("grupos_opcionais")
       .insert(grupoData)
       .select()
       .single();
 
-    if (grupoError) {
-      console.error('Erro ao criar grupo opcional:', grupoError);
-      if (grupoError.code === '23505') { // unique constraint violation
-        return NextResponse.json({ error: `Já existe um grupo opcional com o nome "${grupoData.nome}".` }, { status: 409 });
+    if (grupoErr || !grupo) {
+      const msg =
+        grupoErr?.code === "23505"
+          ? `Já existe um grupo opcional chamado "${grupoData.nome}".`
+          : grupoErr?.message || "Falha ao criar grupo.";
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
+
+    /* 2️⃣  Preparar itens  ------------------------------------------------*/
+    const itensParaInserir = itens.map((item) => {
+      const base = { ...item, grupo_opcional_id: grupo.id };
+
+      // Se for vinculado a um produto original ⇒ mantém nome NULL
+      if (item.produto_original_id) {
+        return { ...base, nome: null };
       }
-      return NextResponse.json({ error: grupoError.message }, { status: 500 });
-    }
 
-    if (!newGrupo) {
-      return NextResponse.json({ error: 'Falha ao criar o grupo, não retornou dados.' }, { status: 500 });
-    }
+      return base;
+    });
 
-    // 2. Criar os itens associados ao grupo
-    const itensParaInserir = itens.map(item => ({
-      ...item,
-      grupo_opcional_id: newGrupo.id,
-    }));
-
-    const { data: newItens, error: itensError } = await supabase
-      .from('itens_opcionais')
+    /* 3️⃣  Inserir itens  -------------------------------------------------*/
+    const { data: novosItens, error: itensErr } = await supabase
+      .from("itens_opcionais")
       .insert(itensParaInserir)
       .select();
 
-    if (itensError) {
-      console.error('Erro ao criar itens opcionais (após criar grupo):', itensError);
-      // Tentar deletar o grupo criado para consistência (rollback manual)
-      await supabase.from('grupos_opcionais').delete().eq('id', newGrupo.id);
-      return NextResponse.json({ error: `Falha ao criar itens do grupo: ${itensError.message}. O grupo foi removido.` }, { status: 500 });
+    if (itensErr) {
+      console.error("Falha ao criar itens. Removendo grupo:", itensErr);
+      // rollback manual
+      await supabase.from("grupos_opcionais").delete().eq("id", grupo.id);
+
+      return NextResponse.json(
+        {
+          error: "Falha ao criar itens do grupo. O grupo foi removido.",
+          details: itensErr.message,
+        },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ ...newGrupo, itens: newItens || [] }, { status: 201 });
-
+    return NextResponse.json({ ...grupo, itens: novosItens }, { status: 201 });
   } catch (e) {
-    console.error('Erro inesperado no POST de grupos_opcionais:', e);
-    return NextResponse.json({ error: 'Erro interno do servidor.' }, { status: 500 });
+    console.error("Erro inesperado no POST grupos_opcionais:", e);
+    return NextResponse.json(
+      { error: "Erro interno do servidor." },
+      { status: 500 }
+    );
   }
 }
