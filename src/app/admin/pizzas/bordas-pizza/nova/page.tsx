@@ -1,20 +1,22 @@
+/* ----------------------------------------------------
+ * Novo cadastro de Borda
+ * --------------------------------------------------*/
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { supabaseBrowserClient } from "@/lib/supabaseBrowserClient";
 
-export default function NovoSaborPage() {
+export default function NovaBordaPage() {
   const router = useRouter();
 
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState<"salgada" | "doce">("salgada");
   const [precoPeq, setPrecoPeq] = useState("");
   const [precoGrande, setPrecoGrande] = useState("");
 
@@ -28,10 +30,9 @@ export default function NovoSaborPage() {
       return;
     }
 
-    const { error } = await supabaseBrowserClient.from("sabores_pizza").insert({
+    const { error } = await supabaseBrowserClient.from("bordas_pizza").insert({
       nome,
       descricao,
-      categoria_sabor: categoria,
       preco_pequena: Number(precoPeq),
       preco_grande: Number(precoGrande),
     });
@@ -43,15 +44,15 @@ export default function NovoSaborPage() {
         variant: "destructive",
       });
     } else {
-      toast({ title: "Sabor cadastrado!" });
-      router.push("/admin/pizzas/sabores-pizza");
+      toast({ title: "Borda cadastrada!" });
+      router.push("/admin/pizzas/bordas-pizza");
       router.refresh();
     }
   }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold mb-6">Adicionar Sabor</h1>
+      <h1 className="text-2xl font-bold mb-6">Adicionar Borda</h1>
 
       <div className="space-y-4">
         <div>
@@ -70,18 +71,6 @@ export default function NovoSaborPage() {
             onChange={(e) => setDescricao(e.target.value)}
             rows={3}
           />
-        </div>
-
-        <div>
-          <Label>Categoria (salgada / doce)</Label>
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value as "salgada" | "doce")}
-            className="w-full border rounded-md py-2 px-3"
-          >
-            <option value="salgada">Salgada</option>
-            <option value="doce">Doce</option>
-          </select>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -107,15 +96,14 @@ export default function NovoSaborPage() {
           </div>
         </div>
 
-        {/* Ações */}
         <div className="flex gap-4 pt-4">
           <Button onClick={handleSave}>Salvar</Button>
 
-          {/* --- Botão Cancelar --- */}
+          {/* Cancelar */}
           <Button
             variant="outline"
             type="button"
-            onClick={() => router.push("/admin/pizzas/sabores-pizza")}
+            onClick={() => router.push("/admin/pizzas/bordas-pizza")}
           >
             Cancelar
           </Button>
