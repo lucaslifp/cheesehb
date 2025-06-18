@@ -1,13 +1,11 @@
+import { createClient } from "@supabase/supabase-js";
+// Remova a linha abaixo se você não estiver usando tipagem personalizada
+// import { Database } from './types';
 
-// Este arquivo foi intencionalmente deixado vazio ou renomeado 
-// para src/lib/supabaseServerClient.ts e src/lib/supabaseBrowserClient.ts
-// para evitar a inicialização acidental do cliente errado.
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Se você precisar de um cliente Supabase para o SERVIDOR, importe de:
-// import { supabase } from '@/lib/supabaseServerClient';
-
-// Se você precisar de um cliente Supabase para o NAVEGADOR, importe de:
-// import { supabaseBrowserClient } from '@/lib/supabaseBrowserClient';
-
-export {}; // Garante que o arquivo seja tratado como um módulo.
-    
+export const supabaseServerClient = createClient(
+  supabaseUrl,
+  supabaseServiceRoleKey
+);
