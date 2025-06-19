@@ -1,63 +1,65 @@
-// src/components/admin/IconButton.tsx
+/* ----------------------------------------------------------------------------
+ * src/components/admin/IconButton.tsx
+ * --------------------------------------------------------------------------*/
 "use client";
 
-import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
+  TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 
-type IconButtonProps = React.ComponentProps<typeof Button> & {
-  /** ícone (Lucide ou qualquer ReactNode) */
-  icon: React.ReactNode;
-  /** texto mostrado no tooltip */
-  label: string;
-  /** cor alternativa (destructive) */
-  destructive?: boolean;
-};
+interface IconButtonProps {
+  icon: LucideIcon;
+  tooltip?: string;
+  variant?: "default" | "outline" | "destructive" | "ghost";
+  size?: "icon" | "sm" | "default";
+  onClick?: () => void;
+  asLink?: string;
+  className?: string;
+}
 
-/**
- * Botão redondinho apenas‐ícone com tooltip.
- *
- * Exemplo de uso:
- * ```tsx
- * <IconButton
- *   icon={<Trash className="h-4 w-4" />}
- *   label="Excluir item"
- *   destructive
- *   onClick={handleDelete}
- * />
- * ```
- */
 export function IconButton({
-  icon,
-  label,
-  destructive,
+  icon: Icon,
+  tooltip,
+  variant = "ghost",
+  size = "icon",
+  onClick,
+  asLink,
   className,
-  ...rest
 }: IconButtonProps) {
+  const Btn = (
+    <Button
+      variant={variant}
+      size={size}
+      onClick={onClick}
+      asChild={!!asLink}
+      className={className}
+    >
+      {asLink ? (
+        <Link href={asLink}>
+          <Icon className="h-4 w-4" />
+        </Link>
+      ) : (
+        <Icon className="h-4 w-4" />
+      )}
+    </Button>
+  );
+
+  /* ---- com / sem tooltip (Provider embutido) ---- */
+  if (!tooltip) return Btn;
+
   return (
-    <TooltipProvider delayDuration={100}>
+    <TooltipProvider delayDuration={120}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            className={
-              destructive
-                ? `text-destructive hover:bg-destructive/10 ${className ?? ""}`
-                : className
-            }
-            {...rest}
-          >
-            {icon}
-            <span className="sr-only">{label}</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">{label}</TooltipContent>
+        <TooltipTrigger asChild>{Btn}</TooltipTrigger>
+        <TooltipContent side="bottom" align="center">
+          <p className="text-xs">{tooltip}</p>
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

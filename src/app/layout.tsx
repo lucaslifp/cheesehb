@@ -1,176 +1,226 @@
-
-import type { Metadata }
-from 'next';
-import './globals.css';
+/* ------------------------------------------------------------------
+ *  src/app/layout.tsx   –   mock-dev com preço mínimo calculado
+ * ----------------------------------------------------------------*/
+import type { Metadata } from "next";
+import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { CartProvider } from '@/context/CartContext';
-import type { SaborPizza, Borda, BairroEntrega, AdicionalPizza, ProdutoAdmin, CategoriaAdmin, GrupoOpcional, ItemOpcional, TipoSelecaoGrupo } from '@/types';
-import type { ReactNode } from 'react';
-// import { supabaseServerClient } from '@/lib/supabaseServerClient'; // Changed from supabase
+import { CartProvider } from "@/context/CartContext";
+import type {
+  SaborPizza,
+  Borda,
+  BairroEntrega,
+  AdicionalPizza,
+  ProdutoAdmin,
+  CategoriaAdmin,
+  GrupoOpcional,
+  ItemOpcional,
+} from "@/types";
+import type { ReactNode } from "react";
 
+/* --------------------------------------------------------------- */
 export const metadata: Metadata = {
-  title: 'CheesePizza',
-  description: 'Peça sua pizza favorita com sugestões feitas por IA!',
+  title: "CheesePizza",
+  description: "Peça sua pizza favorita com sugestões feitas por IA!",
 };
 
-// Mock data functions
+/* ----------------------------------------------------------------
+ *  MOCKS – mesmos que você já usava
+ * ----------------------------------------------------------------*/
 function getMockSaboresPizza(): SaborPizza[] {
   return [
-    { id: 'sabor1', nome: 'Calabresa (Mock)', preco_grande: 40, preco_pequena: 25, categoria_sabor: 'Salgada', ativo: true },
-    { id: 'sabor2', nome: 'Mussarela (Mock)', preco_grande: 38, preco_pequena: 23, categoria_sabor: 'Salgada', ativo: true },
-    { id: 'sabor3', nome: 'Chocolate (Mock)', preco_grande: 42, preco_pequena: 27, categoria_sabor: 'Doce', ativo: true },
+    {
+      id: "sabor1",
+      nome: "Calabresa (Mock)",
+      preco_grande: 40,
+      preco_pequena: 25,
+      categoria_sabor: "salgada",
+      ativo: true,
+    },
+    {
+      id: "sabor2",
+      nome: "Chocolate (Mock)",
+      preco_grande: 42,
+      preco_pequena: 27,
+      categoria_sabor: "doce",
+      ativo: true,
+    },
   ];
 }
 
 function getMockBordasPizza(): Borda[] {
   return [
-    { id: 'borda1', nome: 'Catupiry (Mock)', preco_adicional: 8, ativo: true },
-    { id: 'borda2', nome: 'Cheddar (Mock)', preco_adicional: 7, ativo: true },
-    { id: 'borda-nenhuma', nome: 'Não quero borda', preco_adicional: 0, ativo: true },
+    {
+      id: "borda_catupiry",
+      nome: "Recheada Catupiry",
+      preco_pequena: 8,
+      preco_grande: 12,
+      ativo: true,
+      created_at: "" as any,
+    },
   ];
 }
 
 function getMockAdicionaisPizza(): AdicionalPizza[] {
-  return [
-    { id: 'adicional1', nome: 'Bacon Extra (Mock)', preco: 5, ativo: true },
-    { id: 'adicional2', nome: 'Milho (Mock)', preco: 3, ativo: true },
-  ];
+  return [{ id: "ad_bacon", nome: "Bacon extra", preco: 5, ativo: true }];
 }
 
 function getMockBairrosEntrega(): BairroEntrega[] {
   return [
-    { id: 'bairro1', nome: 'Centro (Mock)', taxa_entrega: 5, ativo: true, tempo_estimado_entrega_minutos: 30 },
-    { id: 'bairro2', nome: 'Vila Pizzaiola (Mock)', taxa_entrega: 7, ativo: true, tempo_estimado_entrega_minutos: 45 },
+    {
+      id: "b1",
+      nome: "Centro",
+      taxa_entrega: 5,
+      tempo_estimado_entrega_minutos: 30,
+      ativo: true,
+    },
   ];
 }
 
 function getMockCategorias(): CategoriaAdmin[] {
   return [
-    { id: 'cat1', nome: 'Bebidas (Mock)', ordem: 10, mostrar_nos_filtros_homepage: true },
-    { id: 'cat2', nome: 'Pizzas Salgadas (Mock)', ordem: 20, mostrar_nos_filtros_homepage: true },
-    { id: 'cat3', nome: 'Pizzas Doces (Mock)', ordem: 30, mostrar_nos_filtros_homepage: true },
-    { id: 'cat4', nome: 'Hambúrgueres (Mock)', ordem: 40, mostrar_nos_filtros_homepage: true },
-    { id: 'cat-pizzas-base', nome: 'Pizzas (para montar - Mock)', ordem: 5, mostrar_nos_filtros_homepage: false }, // Categoria para bases de pizza
+    {
+      id: "cat_bebidas",
+      nome: "Bebidas",
+      ordem: 10,
+      mostrar_nos_filtros_homepage: true,
+    },
+    {
+      id: "cat_pizzas_base",
+      nome: "Pizzas (para montar)",
+      ordem: 5,
+      mostrar_nos_filtros_homepage: false,
+    },
   ];
 }
 
 function getMockProdutos(): ProdutoAdmin[] {
-   const mockCategoriasData = getMockCategorias();
-   const pizzaBaseCatId = mockCategoriasData.find(c => c.nome.includes("Pizzas (para montar"))?.id || 'cat-pizzas-base';
-   const bebidasCatId = mockCategoriasData.find(c => c.nome.includes("Bebidas"))?.id || 'cat1';
-   const salgadasCatId = mockCategoriasData.find(c => c.nome.includes("Pizzas Salgadas"))?.id || 'cat2';
+  const cats = getMockCategorias();
+  const catPizzaBase = cats.find((c) => c.nome.includes("para montar"))!.id;
+  const catBebidas = cats.find((c) => c.nome === "Bebidas")!.id;
 
-
-  const mockGrupos: GrupoOpcional[] = [
+  /* exemplo de grupo opcional mock só para ilustrar  */
+  const gruposMock: GrupoOpcional[] = [
     {
-      id: 'grupo_refri',
-      nome: 'Escolha seu Refrigerante',
-      tipo_selecao: 'RADIO_OBRIGATORIO',
+      id: "grupo_refri",
+      nome: "Refrigerante",
+      tipo_selecao: "RADIO_OBRIGATORIO",
       ordem: 1,
       ativo: true,
       itens: [
-        { id: 'refri_coca', nome: 'Coca-Cola Lata (Mock)', preco_adicional: 0, ativo: true, ordem: 1, default_selecionado: true },
-        { id: 'refri_guarana', nome: 'Guaraná Lata (Mock)', preco_adicional: 0, ativo: true, ordem: 2 },
-        { id: 'refri_nenhum', nome: 'Nenhum Refrigerante', preco_adicional: 0, ativo: true, ordem: 3 },
-      ],
-    },
-    {
-      id: 'grupo_acomp',
-      nome: 'Acompanhamentos',
-      tipo_selecao: 'CHECKBOX_OPCIONAL_MULTI',
-      max_selecoes: 2,
-      instrucao: 'Escolha até 2 acompanhamentos',
-      ordem: 2,
-      ativo: true,
-      itens: [
-        { id: 'acomp_fritas', nome: 'Batata Frita P (Mock)', preco_adicional: 8.00, ativo: true, ordem: 1 },
-        { id: 'acomp_nuggets', nome: 'Nuggets 6 unid. (Mock)', preco_adicional: 12.00, ativo: true, ordem: 2 },
-        { id: 'acomp_nenhum', nome: 'Nenhum Acompanhamento', preco_adicional: 0, ativo: true, ordem: 3, default_selecionado: true },
+        {
+          id: "opt_coca",
+          nome: "Coca lata",
+          preco_adicional: 0,
+          ativo: true,
+          ordem: 1,
+        } as ItemOpcional,
       ],
     },
   ];
 
-
   return [
-    // Pizza Base para Montagem
+    /* Pizza grande personalizável */
     {
-      id: 'pizza_base_grande',
-      nome: 'Pizza Grande (Monte a Sua - Mock)',
-      descricao: 'Escolha até 2 sabores para sua pizza grande.',
-      preco_base: 0, // O preço será calculado pelos sabores
-      categoria_id: pizzaBaseCatId,
+      id: "pizza_grande",
+      nome: "Pizza Grande 2 Sabores",
+      descricao: "Monte sua pizza grande (8 fatias)",
+      preco_base: null,
+      categoria_id: catPizzaBase,
       ativo: true,
       mostrar_no_cardapio: true,
       is_personalizable_pizza: true,
-      available_sizes: ['Grande'],
-      imagem_url: 'https://placehold.co/300x200.png',
-      image_hint: 'customizable pizza',
-    },
-    // Produto Simples (Bebida)
+      available_sizes: ["grande"],
+      imagem_url: "https://placehold.co/300x200.png",
+      image_hint: "",
+    } as unknown as ProdutoAdmin,
+
+    /* Bebida simples */
     {
-      id: 'produto1',
-      nome: 'Coca-Cola Lata (Mock)',
-      descricao: 'Refrigerante Coca-Cola em lata 350ml.',
-      preco_base: 5.00,
-      categoria_id: bebidasCatId,
+      id: "bebida_coca",
+      nome: "Coca-Cola Lata",
+      descricao: "350 ml",
+      preco_base: 6,
+      categoria_id: catBebidas,
       ativo: true,
       mostrar_no_cardapio: true,
       is_personalizable_pizza: false,
-      imagem_url: 'https://placehold.co/300x200.png',
-      image_hint: 'coke can',
-    },
-    // Produto com Opcionais (Hambúrguer)
+      imagem_url: "https://placehold.co/300x200.png",
+      image_hint: "",
+    } as unknown as ProdutoAdmin,
+
+    /* Hamburguer com opcionais */
     {
-      id: 'produto2',
-      nome: 'X-Burger Clássico (Mock)',
-      descricao: 'Hambúrguer artesanal com queijo, alface e tomate.',
-      preco_base: 25.00,
-      categoria_id: mockCategoriasData.find(c => c.nome.includes("Hambúrgueres"))?.id || 'cat4',
+      id: "burguer1",
+      nome: "X-Burger Clássico",
+      descricao: "Carne, queijo, salada",
+      preco_base: 25,
+      categoria_id: "cat_burgers",
       ativo: true,
       mostrar_no_cardapio: true,
       is_personalizable_pizza: false,
-      grupos_opcionais_ids: [mockGrupos[0].id, mockGrupos[1].id], // Simula associação
-      gruposDeOpcionais: mockGrupos, // Inclui os dados completos dos grupos
-      imagem_url: 'https://placehold.co/300x200.png',
-      image_hint: 'burger',
-    },
-    // Produto Simples (Outra Bebida)
-    {
-      id: 'produto3',
-      nome: 'Guaraná Antártica Lata (Mock)',
-      descricao: 'Refrigerante Guaraná Antártica em lata 350ml.',
-      preco_base: 4.50,
-      categoria_id: bebidasCatId,
-      ativo: true,
-      mostrar_no_cardapio: true,
-      is_personalizable_pizza: false,
-      imagem_url: 'https://placehold.co/300x200.png',
-      image_hint: 'soda can',
-    },
+      grupos_opcionais_ids: ["grupo_refri"],
+      gruposDeOpcionais: gruposMock,
+      imagem_url: "https://placehold.co/300x200.png",
+      image_hint: "",
+    } as unknown as ProdutoAdmin,
   ];
 }
 
+/* ----------------------------------------------------------------
+ *   Enriquecimento de preço mínimo para pizzas personalizáveis
+ * ----------------------------------------------------------------*/
+function enrichProdutosComPrecoMinimo(
+  lista: ProdutoAdmin[] | undefined,
+  sabores: SaborPizza[]
+): ProdutoAdmin[] {
+  if (!Array.isArray(lista)) return [];
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: ReactNode;
-}>) {
-  // Use mock data functions
+  return lista.map((p) => {
+    if (!p.is_personalizable_pizza) return p;
+
+    const usaGrande = p.available_sizes?.includes("grande");
+    const usaPequena = p.available_sizes?.includes("pequena");
+
+    let menor = Number.POSITIVE_INFINITY;
+    sabores
+      .filter((s) => s.ativo)
+      .forEach((s) => {
+        if (usaGrande && s.preco_grande < menor) menor = s.preco_grande;
+        if (usaPequena && s.preco_pequena < menor) menor = s.preco_pequena;
+      });
+
+    const preco_base_final =
+      Number.isFinite(menor) && menor > 0 ? menor : p.preco_base ?? 0;
+
+    return { ...p, preco_base: preco_base_final };
+  });
+}
+
+/* ----------------------------------------------------------------
+ *  RootLayout
+ * ----------------------------------------------------------------*/
+export default function RootLayout({ children }: { children: ReactNode }) {
   const sabores = getMockSaboresPizza();
   const bordas = getMockBordasPizza();
   const adicionais = getMockAdicionaisPizza();
   const bairros = getMockBairrosEntrega();
-  const produtos = getMockProdutos();
   const categorias = getMockCategorias();
+
+  const produtos = enrichProdutosComPrecoMinimo(getMockProdutos(), sabores);
 
   return (
     <html lang="pt-BR">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
-        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin=""
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=PT+Sans:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className="font-body antialiased">
         <CartProvider

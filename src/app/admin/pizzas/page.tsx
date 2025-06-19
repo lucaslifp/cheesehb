@@ -27,14 +27,6 @@ export default async function PizzasAdminPage() {
         <h1 className="text-2xl font-bold">Pizzas&nbsp;(Personalizáveis)</h1>
 
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/admin/pizzas/sabores-pizza">
-              Gerenciar&nbsp;Sabores
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/admin/pizzas/bordas-pizza">Gerenciar&nbsp;Bordas</Link>
-          </Button>
           <Button asChild>
             <Link href="/admin/pizzas/nova">
               Adicionar&nbsp;Nova&nbsp;Pizza

@@ -1,3 +1,6 @@
+/* ----------------------------------------------------------------
+ * src/context/CartContext.tsx
+ * ----------------------------------------------------------------*/
 "use client";
 
 import {
@@ -9,6 +12,7 @@ import {
   useState,
   ReactNode,
 } from "react";
+
 import type {
   ProdutoAdmin,
   CartItem,
@@ -22,16 +26,18 @@ import type {
   OpcionalSelecionadoCarrinho,
   CategoriaAdmin,
 } from "@/types";
+
 import {
   getShopStatus,
   SHOP_CURRENTLY_CLOSED_MESSAGE,
 } from "@/lib/shop-config";
+
 import { toast } from "@/hooks/use-toast";
 import { supabaseBrowserClient } from "@/lib/supabaseBrowserClient";
 
-/* ---------------------------------------------------- */
-/* helpers                                              */
-/* ---------------------------------------------------- */
+/* ================================================================ */
+/* helpers                                                          */
+/* ================================================================ */
 export const generateCartItemId = (
   produtoId: string,
   adicionaisCobertura?: AdicionalSelecionado[],
@@ -41,31 +47,35 @@ export const generateCartItemId = (
   opcionaisSelecionados?: OpcionalSelecionadoCarrinho[]
 ) => {
   const parts = [produtoId];
+
   if (sabor1Id) parts.push(`s1-${sabor1Id}`);
   if (sabor2Id) parts.push(`s2-${sabor2Id}`);
   if (bordaId) parts.push(`b-${bordaId}`);
-  if (adicionaisCobertura?.length)
+
+  if (adicionaisCobertura?.length) {
     parts.push(
       `adc-${adicionaisCobertura
         .map((a) => `${a.id}_q${a.quantidade}`)
         .sort()
         .join("-")}`
     );
-  if (opcionaisSelecionados?.length)
+  }
+  if (opcionaisSelecionados?.length) {
     parts.push(
       `ops-${opcionaisSelecionados
         .map((o) => `${o.grupo_id}_${o.item_id}_q${o.quantidade}`)
         .sort()
         .join("-")}`
     );
+  }
   return parts.join("_");
 };
 
-/* ---------------------------------------------------- */
-/* tipos do contexto                                   */
-/* ---------------------------------------------------- */
+/* ================================================================ */
+/* tipo do contexto                                                 */
+/* ================================================================ */
 interface CartContextType {
-  /* dados de catálogo */
+  /* ---------- catálogo ---------- */
   produtos: ProdutoAdmin[];
   categorias: CategoriaAdmin[];
   sabores: SaborPizza[];
@@ -73,11 +83,11 @@ interface CartContextType {
   adicionaisPizza: AdicionalPizzaType[];
   bairrosEntrega: BairroEntrega[];
 
-  /* helpers */
+  /* ---------- helpers ----------- */
   getSaborById(id: string): SaborPizza | undefined;
   getBordaById(id: string): Borda | undefined;
 
-  /* carrinho */
+  /* ---------- carrinho ---------- */
   cartItems: CartItem[];
   addToCart: (
     produto: ProdutoAdmin,
@@ -93,16 +103,35 @@ interface CartContextType {
   updateQuantity(id: string, qty: number): void;
   clearCart(): void;
 
-  /* checkout */
+  /* ---------- totais ------------ */
   subtotal: number;
   frete: number;
   totalAmount: number;
   totalItems: number;
 
-  /* status da loja */
+  /* ---------- status loja ------- */
   isShopOpen: boolean;
   shopStatusMessage: string;
   isLoadingShopStatus: boolean;
+
+  /* ---------- (place-holders) --- */
+  /* Mantidos para compatibilidade com telas antigas. */
+  upsoldItem: UpsoldItem | null;
+  contactInfo: ContactInfo | null;
+  addUpsoldItem(): void;
+  removeUpsoldItem(): void;
+  updateContactInfo(info: Partial<ContactInfo>): void;
+  resetOrder(): void;
+
+  /* ---------- outros helpers ---- */
+  getAdicionalPizzaById(id: string): AdicionalPizzaType | undefined;
+  getBairroById(id: string | null | undefined): BairroEntrega | undefined;
+  getProdutoById(id: string): ProdutoAdmin | undefined;
+  getCategoriaById(id: string): CategoriaAdmin | undefined;
+  getItemOpcionalPrice(
+    produtoOriginalId: string | undefined,
+    precoAdicional: number
+  ): number;
 }
 
 export const CartContext = createContext<CartContextType | undefined>(
@@ -110,15 +139,16 @@ export const CartContext = createContext<CartContextType | undefined>(
 );
 export const useCart = () => {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart deve ser usado dentro do CartProvider");
+  if (!ctx)
+    throw new Error("useCart precisa estar dentro de um <CartProvider />");
   return ctx;
 };
 
-/* ---------------------------------------------------- */
-/* provider                                             */
-/* ---------------------------------------------------- */
+/* ================================================================ */
+/* provider                                                         */
+/* ================================================================ */
 export function CartProvider({ children }: { children: ReactNode }) {
-  /* --- catálogo --- */
+  /* ---------- catálogo ---------- */
   const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
   const [categorias, setCategorias] = useState<CategoriaAdmin[]>([]);
   const [sabores, setSabores] = useState<SaborPizza[]>([]);
@@ -128,36 +158,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
   const [bairrosEntrega, setBairros] = useState<BairroEntrega[]>([]);
 
-  /* --- estado da loja --- */
+  /* ---------- status loja ------- */
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [shopStatusMessage, setShopStatusMessage] = useState(
-    "Verificando status..."
+    "Verificando status da loja..."
   );
   const [isLoadingShopStatus, setIsLoadingShopStatus] = useState(true);
 
-  /* --- carrinho --- */
+  /* ---------- carrinho ---------- */
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  /* ==================================================== */
-  /* carregamento inicial                                 */
-  /* ==================================================== */
+  /* ----------------------------------------------------------------
+   * 1. Carregar status da loja
+   * ----------------------------------------------------------------*/
   useEffect(() => {
-    /* 1. status da loja -------------------------------- */
     const loadStatus = async () => {
-      const status = await getShopStatus();
-      setIsShopOpen(status.isOpen);
-      setShopStatusMessage(status.message);
-      setIsLoadingShopStatus(false);
+      try {
+        const status = await getShopStatus();
+        setIsShopOpen(status.isOpen);
+        setShopStatusMessage(status.message);
+      } catch {
+        setIsShopOpen(false);
+        setShopStatusMessage(SHOP_CURRENTLY_CLOSED_MESSAGE);
+      } finally {
+        setIsLoadingShopStatus(false);
+      }
     };
     loadStatus();
     const id = setInterval(loadStatus, 60_000);
     return () => clearInterval(id);
   }, []);
 
+  /* ----------------------------------------------------------------
+   * 2. Carregar catálogo
+   * ----------------------------------------------------------------*/
   useEffect(() => {
-    /* 2. catálogo -------------------------------------- */
     const loadCatalog = async () => {
       const sb = supabaseBrowserClient;
+
       const [
         { data: prods },
         { data: cats },
@@ -173,6 +211,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         sb.from("adicionais_pizza").select("*").eq("ativo", true),
         sb.from("bairros_entrega").select("*").eq("ativo", true),
       ]);
+
       setProdutos(prods ?? []);
       setCategorias(cats ?? []);
       setSabores(sab ?? []);
@@ -183,9 +222,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     loadCatalog();
   }, []);
 
-  /* ==================================================== */
-  /* helpers                                              */
-  /* ==================================================== */
+  /* ----------------------------------------------------------------
+   * helpers de catálogo
+   * ----------------------------------------------------------------*/
   const getSaborById = useCallback(
     (id: string) => sabores.find((s) => s.id === id),
     [sabores]
@@ -195,9 +234,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [bordas]
   );
 
-  /* ==================================================== */
-  /* carrinho                                             */
-  /* ==================================================== */
+  /* ----------------------------------------------------------------
+   * Carrinho
+   * ----------------------------------------------------------------*/
   const addToCart: CartContextType["addToCart"] = (
     produto,
     qty = 1,
@@ -212,6 +251,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       toast({ title: "Loja fechada", description: shopStatusMessage });
       return;
     }
+
     const newId = generateCartItemId(
       produto.id,
       adicionais,
@@ -220,6 +260,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       borda,
       opcionais
     );
+
     setCartItems((prev) => {
       const existing = prev.find(
         (it) =>
@@ -286,9 +327,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setCartItems([]);
 
-  /* ==================================================== */
-  /* totais                                               */
-  /* ==================================================== */
+  /* ----------------------------------------------------------------
+   * Totais
+   * ----------------------------------------------------------------*/
   const subtotal = useMemo(
     () =>
       cartItems.reduce(
@@ -300,17 +341,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cartItems]
   );
 
-  const frete = useMemo(() => 0, []); // calcule como preferir
+  const frete = useMemo(() => 0, []);
   const totalAmount = subtotal + frete;
   const totalItems = useMemo(
-    () => cartItems.reduce((sum, it) => sum + it.quantity, 0),
+    () => cartItems.reduce((s, it) => s + it.quantity, 0),
     [cartItems]
   );
 
-  /* ==================================================== */
-  /* provider value                                       */
-  /* ==================================================== */
-  const value: CartContextType = useMemo(
+  /* ----------------------------------------------------------------
+   * Valor do contexto
+   * ----------------------------------------------------------------*/
+  const value = useMemo<CartContextType>(
     () => ({
       /* catálogo */
       produtos,
@@ -327,7 +368,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       getBairroById: (id) => bairrosEntrega.find((b) => b.id === id),
       getProdutoById: (id) => produtos.find((p) => p.id === id),
       getCategoriaById: (id) => categorias.find((c) => c.id === id),
-      getItemOpcionalPrice: (_id, p) => p,
+      getItemOpcionalPrice: (_id, preco) => preco,
 
       /* carrinho */
       cartItems,
@@ -336,7 +377,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       updateQuantity,
       clearCart,
 
-      /* upsell & info (placeholder – mantenha se usar)   */
+      /* placeholders de upsell / info (mantidos p/ compat.) */
       upsoldItem: null,
       contactInfo: null,
       addUpsoldItem: () => {},

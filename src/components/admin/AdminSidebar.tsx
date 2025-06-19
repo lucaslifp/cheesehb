@@ -1,3 +1,7 @@
+/* ----------------------------------------------------------------
+ * AdminSidebar.tsx
+ * Lateral do painel - inclui o novo link /admin/adicionais
+ * ----------------------------------------------------------------*/
 "use client";
 
 import Link from "next/link";
@@ -17,7 +21,9 @@ import {
   Truck,
   CircleDot,
   MapPin,
+  Utensils, // ícone para “Adicionais”
 } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -28,9 +34,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { ComponentType, SVGProps } from "react";
 
-/* ---------- Tipagem e itens ---------- */
+/* ---------- Tipagem ---------- */
 interface MenuItem {
   href?: string;
   label: string;
@@ -39,6 +44,7 @@ interface MenuItem {
   disabled?: boolean;
 }
 
+/* ---------- Itens do menu ---------- */
 const menuItems: MenuItem[] = [
   { href: "/admin", label: "Dashboard", icon: Home },
   { href: "/admin/faturamento", label: "Faturamento", icon: DollarSign },
@@ -52,7 +58,7 @@ const menuItems: MenuItem[] = [
   { href: "/admin/categorias", label: "Categorias", icon: Layers },
   { href: "/admin/pizzas", label: "Pizza Meio a Meio", icon: Pizza },
 
-  /* ▼ sub-itens recuados (indent = pl-6) */
+  /* ▼ sub-itens recuados (indentados) */
   {
     href: "/admin/pizzas/sabores-pizza",
     label: "Sabores da Pizza",
@@ -64,6 +70,10 @@ const menuItems: MenuItem[] = [
     icon: CircleDot,
   },
 
+  /* ➜ NOVO LINK (Cardápio) */
+  { href: "/admin/adicionais", label: "Adicionais", icon: Utensils },
+
+  /* já existia */
   {
     href: "/admin/extras-e-combos",
     label: "Extras & Combos (Grupos)",
@@ -89,9 +99,21 @@ export function AdminSidebar() {
 
   function handleLogout() {
     localStorage.removeItem("isAdminLoggedIn");
-    toast({ title: "Logout realizado", description: "Você foi desconectado." });
+    toast({
+      title: "Logout realizado",
+      description: "Você foi desconectado.",
+    });
     router.push("/admin/login");
   }
+
+  /* função p/ saber se rota está ativa */
+  const isActive = (href?: string) =>
+    href &&
+    (pathname === href || (href !== "/admin" && pathname.startsWith(href)));
+
+  /* detectar sub-item para recuo */
+  const needsIndent = (label: string) =>
+    label.startsWith("Sabores") || label.startsWith("Bordas");
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -107,60 +129,23 @@ export function AdminSidebar() {
 
           {/* ---------- Navegação ---------- */}
           <nav className="flex flex-col space-y-1 flex-grow">
-            {menuItems.map((item, i) => {
-              /* Títulos de seção */
-              if (item.isTitle) {
-                return (
-                  <h3
-                    key={"title-" + i}
-                    className="px-2 pt-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                  >
-                    {item.label}
-                  </h3>
-                );
-              }
-
-              const isActive =
-                pathname === item.href ||
-                (item.href !== "/admin" && pathname.startsWith(item.href!));
-
-              const needsIndent =
-                item.label.startsWith("Sabores") ||
-                item.label.startsWith("Bordas");
-
-              const button = (
-                <Button
-                  key={item.href}
-                  variant={isActive ? "secondary" : "ghost"}
-                  asChild
-                  className={cn(
-                    "w-full justify-start hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    isActive &&
-                      "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
-                    needsIndent && "pl-6",
-                    item.disabled && "opacity-50 cursor-not-allowed"
-                  )}
-                  disabled={item.disabled}
+            {menuItems.map((item, idx) =>
+              item.isTitle ? (
+                <h3
+                  key={`title-${idx}`}
+                  className="px-2 pt-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                 >
-                  <Link href={item.href!} prefetch={false}>
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.label}
-                  </Link>
-                </Button>
-              );
-
-              /* Se estiver desativado, envolve em Tooltip */
-              return item.disabled ? (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger asChild>{button}</TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Funcionalidade em breve</p>
-                  </TooltipContent>
-                </Tooltip>
+                  {item.label}
+                </h3>
               ) : (
-                button
-              );
-            })}
+                <MenuLink
+                  key={item.href}
+                  item={item}
+                  active={isActive(item.href)}
+                  indent={needsIndent(item.label)}
+                />
+              )
+            )}
           </nav>
 
           {/* ---------- Logout ---------- */}
@@ -177,5 +162,47 @@ export function AdminSidebar() {
         </div>
       </ScrollArea>
     </TooltipProvider>
+  );
+}
+
+/* ---------- Link individual ---------- */
+function MenuLink({
+  item,
+  active,
+  indent,
+}: {
+  item: MenuItem;
+  active: boolean;
+  indent: boolean;
+}) {
+  const Btn = (
+    <Button
+      variant={active ? "secondary" : "ghost"}
+      asChild
+      className={cn(
+        "w-full justify-start hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        active &&
+          "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+        indent && "pl-6",
+        item.disabled && "opacity-50 cursor-not-allowed"
+      )}
+      disabled={item.disabled}
+    >
+      <Link href={item.href!} prefetch={false}>
+        <item.icon className="mr-2 h-4 w-4" />
+        {item.label}
+      </Link>
+    </Button>
+  );
+
+  return item.disabled ? (
+    <Tooltip>
+      <TooltipTrigger asChild>{Btn}</TooltipTrigger>
+      <TooltipContent side="right">
+        <p>Funcionalidade em breve</p>
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    Btn
   );
 }

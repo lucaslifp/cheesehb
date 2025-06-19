@@ -1,10 +1,12 @@
+// -------------  PUBLIC SHOP STATUS  -----------------
 import { NextResponse } from "next/server";
-import { supabaseServerClient } from "@/lib/supabaseServerClient";
+import { supabaseServerClient as supabase } from "@/lib/supabaseServerClient";
 
 export async function GET() {
   const CONFIG_ID = "00000000-0000-0000-0000-000000000001";
 
-  const { data: config, error: configError } = await supabaseServerClient
+  /* ───── loja_configuracoes ───── */
+  const { data: config, error: cfgErr } = await supabase
     .from("loja_configuracoes")
     .select(
       "override_status, mensagem_loja_fechada_personalizada, horarios_funcionamento, nome_loja, endereco_loja, whatsapp_loja, instagram_loja, logo_url"
@@ -12,31 +14,34 @@ export async function GET() {
     .eq("id", CONFIG_ID)
     .single();
 
-  const { data: produtos, error: produtosError } = await supabaseServerClient
+  /* ───── produtos ───── */
+  const { data: produtos, error: prodErr } = await supabase
     .from("produtos")
-    .select("*, categoria_id")
+    .select("* , categoria_id")
     .eq("ativo", true)
     .eq("mostrar_no_cardapio", true);
 
-  const { data: categorias, error: categoriasError } =
-    await supabaseServerClient
-      .from("categorias")
-      .select("id, mostrar_nos_filtros_homepage, nome, direto_no_carrinho");
+  /* ───── categorias (para flag direto_no_carrinho) ───── */
+  const { data: categorias, error: catErr } = await supabase
+    .from("categorias")
+    .select("id, direto_no_carrinho");
 
-  if (configError || produtosError || categoriasError) {
-    return NextResponse.json(
-      { erro: "Erro ao carregar dados." },
-      { status: 500 }
-    );
+  /* ───── NOVO: adicionais genéricos ───── */
+  const { data: adicionais, error: addErr } = await supabase
+    .from("adicionais")
+    .select("id, nome, preco, ativo")
+    .eq("ativo", true);
+
+  if (cfgErr || prodErr || catErr || addErr) {
+    const err = cfgErr ?? prodErr ?? catErr ?? addErr;
+    console.error("shop-status-public error:", err);
+    return NextResponse.json({ erro: err.message }, { status: 500 });
   }
 
-  const produtosComExtras = (produtos || []).map((p) => {
-    const categoria = categorias?.find((c) => c.id === p.categoria_id);
-    return {
-      ...p,
-      preco: p.preco_base ?? 0,
-      diretoNoCarrinho: categoria?.direto_no_carrinho ?? false,
-    };
+  /* anexa flag → produto */
+  const produtosComFlag = (produtos ?? []).map((p) => {
+    const cat = categorias?.find((c) => c.id === p.categoria_id);
+    return { ...p, direto_no_carrinho: cat?.direto_no_carrinho ?? false };
   });
 
   return NextResponse.json({
@@ -48,6 +53,7 @@ export async function GET() {
     whatsappLoja: config?.whatsapp_loja,
     instagramLoja: config?.instagram_loja,
     logoUrl: config?.logo_url,
-    produtos: produtosComExtras,
+    produtos: produtosComFlag,
+    adicionais, //  ← NOVO
   });
 }
