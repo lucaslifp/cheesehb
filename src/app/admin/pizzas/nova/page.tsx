@@ -1,135 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { supabaseBrowserClient } from "@/lib/supabaseBrowserClient";
-
-/* ─────────────────────────────────────────── */
+import { supabaseBrowserClient as supabase } from "@/lib/supabaseBrowserClient";
+import { v4 as uuidv4 } from "uuid";
 
 export default function NovaPizzaPage() {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
-  /* campos */
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [tituloModal, setTituloModal] = useState("Monte sua Pizza");
+  const [imagem, setImagem] = useState<File | null>(null);
+  const [tamanho, setTamanho] = useState("");
+  const [titulo_modal, setTituloModal] = useState("");
 
-  /* imagem + preview */
-  const [fileImg, setFileImg] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
 
-  /* categoria e tamanho */
-  const [categoriaId, setCategoriaId] = useState<string | null>(null);
-  const [tamanho, setTamanho] = useState<"pequena" | "grande">("grande");
-
-  /* ─────────────────────────────────────────── */
-  /* carrega / cria categoria “Pizzas”           */
-  useEffect(() => {
-    (async () => {
-      const sb = supabaseBrowserClient;
-      const { data } = await sb.from("categorias").select("id,nome");
-      let cat = data?.find((c) => c.nome === "Pizzas");
-
-      if (!cat) {
-        const { data: nova, error } = await sb
-          .from("categorias")
-          .insert({
-            nome: "Pizzas",
-            ordem: 0,
-            mostrar_nos_filtros_homepage: true,
-          })
-          .select("id")
-          .single();
-        if (error) {
-          toast({ title: "Erro ao criar categoria", variant: "destructive" });
-          return;
-        }
-        cat = nova;
-      }
-      if (cat) setCategoriaId(cat.id);
-    })();
-  }, []);
-
-  /* preview da imagem */
-  function onSelectFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] || null;
-    setFileImg(f);
-    setPreview(f ? URL.createObjectURL(f) : null);
-  }
-
-  /* ─────────────────────────────────────────── */
-  async function handleSubmit() {
-    if (!nome || !fileImg) {
+    if (!nome || !imagem || !tamanho || !titulo_modal) {
       toast({
-        title: "Nome e imagem são obrigatórios",
+        title: "Preencha todos os campos obrigatórios",
         variant: "destructive",
       });
       return;
     }
 
-    const sb = supabaseBrowserClient;
+    const pizzaId = uuidv4();
 
-    /* cria registro da pizza */
-    const { data: pizza, error } = await sb
+    const { error: insertError } = await supabase
       .from("pizzas_personalizaveis")
       .insert({
+        id: pizzaId,
         nome,
         descricao,
-        titulo_modal_personalizacao: tituloModal,
-        categoria_id: categoriaId,
-        tamanho_pizza: tamanho, // pequena | grande
-        tipo_pizza: "mista", // valor obrigatório
-      })
-      .select("id")
-      .single();
+        tamanho,
+        titulo_modal,
+        ativo: true,
+      });
 
-    if (error || !pizza) {
+    if (insertError) {
       toast({
-        title: "Erro ao cadastrar pizza",
-        description: error?.message,
+        title: "Erro ao salvar",
+        description: insertError.message,
         variant: "destructive",
       });
       return;
     }
 
-    /* upload da imagem */
-    const path = `pizzas/${pizza.id}.png`;
-    const { error: upErr } = await sb.storage
+    const { error: uploadError } = await supabase.storage
       .from("public-assets")
-      .upload(path, fileImg, { upsert: true });
+      .upload(`pizzas/${pizzaId}.png`, imagem, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: imagem.type,
+      });
 
-    if (upErr) {
+    if (uploadError) {
       toast({
-        title: "Erro no upload da imagem",
-        description: upErr.message,
+        title: "Pizza salva, mas houve erro ao enviar a imagem",
         variant: "destructive",
       });
-      return;
+    } else {
+      toast({ title: "Pizza cadastrada com sucesso!" });
     }
 
-    const imgUrl = sb.storage.from("public-assets").getPublicUrl(path)
-      .data.publicUrl;
-    await sb
-      .from("pizzas_personalizaveis")
-      .update({ imagem_url: imgUrl })
-      .eq("id", pizza.id);
-
-    toast({ title: "Pizza cadastrada com sucesso!" });
     router.push("/admin/pizzas");
   }
 
-  /* ─────────────────────────────────────────── */
   return (
-    <div className="max-w-3xl mx-auto p-8">
-      <h1 className="text-xl font-bold">Cadastrar Nova Pizza</h1>
+    <div className="max-w-2xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-bold mb-6">Cadastrar Nova Pizza</h1>
 
-      <div className="space-y-4 mt-6">
-        {/* Nome */}
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <Label>Nome *</Label>
           <Input
@@ -139,7 +87,6 @@ export default function NovaPizzaPage() {
           />
         </div>
 
-        {/* Descrição */}
         <div>
           <Label>Descrição</Label>
           <Textarea
@@ -149,59 +96,56 @@ export default function NovaPizzaPage() {
           />
         </div>
 
-        {/* Imagem + preview */}
         <div>
           <Label>Imagem *</Label>
           <Input
             type="file"
             accept="image/*"
-            onChange={onSelectFile}
+            onChange={(e) => setImagem(e.target.files?.[0] || null)}
             required
           />
-          {preview && (
-            <img
-              src={preview}
-              alt="Pré-visualização"
-              className="mt-3 h-32 w-auto rounded-md border"
-            />
-          )}
         </div>
 
-        {/* Tamanho */}
         <div>
           <Label>Tamanho *</Label>
           <select
             value={tamanho}
-            onChange={(e) => setTamanho(e.target.value as "pequena" | "grande")}
-            className="w-full border rounded-md py-2 px-3"
+            onChange={(e) => setTamanho(e.target.value)}
+            className="w-full rounded-md border px-3 py-2 text-sm"
             required
           >
-            <option value="pequena">Pequena Mista</option>
-            <option value="grande">Grande Mista</option>
+            <option value="">Selecione o tamanho</option>
+            <option value="PEQUENA">Pequena</option>
+            <option value="GRANDE">Grande</option>
           </select>
         </div>
 
-        {/* Título do modal */}
         <div>
           <Label>Título do Modal *</Label>
           <Input
-            value={tituloModal}
+            value={titulo_modal}
             onChange={(e) => setTituloModal(e.target.value)}
             required
           />
         </div>
 
-        {/* Ações */}
-        <div className="flex gap-2 mt-4">
-          <Button onClick={handleSubmit}>Salvar Pizza</Button>
+        <div className="flex gap-4 pt-4">
           <Button
+            type="submit"
+            disabled={isPending}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            Salvar Pizza
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             onClick={() => router.push("/admin/pizzas")}
           >
             Cancelar
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

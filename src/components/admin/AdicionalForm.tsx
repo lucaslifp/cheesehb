@@ -1,29 +1,61 @@
-/* src/components/admin/AdicionalForm.tsx */
 "use client";
+
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 
-export default function AdicionalForm() {
+function formatarParaReal(valor: string) {
+  const numeros = valor.replace(/\D/g, "");
+  const numero = parseFloat(numeros) / 100;
+  return numero.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+  });
+}
+
+function limparMascara(valor: string) {
+  return parseFloat(valor.replace(/\D/g, "")) / 100;
+}
+
+export default function AdicionalForm({
+  onSuccess,
+}: {
+  onSuccess?: () => void;
+}) {
   const [nome, setNome] = useState("");
-  const [preco, setPreco] = useState<number>(0);
+  const [precoTexto, setPrecoTexto] = useState("R$ 0,00");
+  const [isLoading, setIsLoading] = useState(false);
 
   async function handleAdd() {
-    if (!nome.trim()) return toast({ title: "Informe o nome" });
+    const preco = limparMascara(precoTexto);
+    if (!nome.trim()) {
+      toast({ title: "Informe o nome", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
     const res = await fetch("/api/admin/adicionais", {
       method: "POST",
       body: JSON.stringify({ nome: nome.trim(), preco }),
     });
+
     if (!res.ok) {
-      return toast({
+      toast({
         title: "Erro",
         description: "Já existe ou servidor falhou",
         variant: "destructive",
       });
+    } else {
+      toast({ title: "Adicional cadastrado com sucesso!" });
+      setNome("");
+      setPrecoTexto("R$ 0,00");
+      onSuccess?.(); // ✅ Atualiza listagem se fornecido
     }
-    location.reload();
+
+    setIsLoading(false);
   }
 
   return (
@@ -36,14 +68,13 @@ export default function AdicionalForm() {
           onChange={(e) => setNome(e.target.value)}
         />
         <Input
-          type="number"
-          min={0}
-          step={0.01}
-          value={preco}
-          onChange={(e) => setPreco(Number(e.target.value))}
+          placeholder="R$ 0,00"
+          value={precoTexto}
+          onChange={(e) => setPrecoTexto(formatarParaReal(e.target.value))}
+          className="text-right"
         />
       </div>
-      <Button onClick={handleAdd}>
+      <Button onClick={handleAdd} disabled={isLoading}>
         <Plus className="mr-2 h-4 w-4" />
         Adicionar Adicional
       </Button>

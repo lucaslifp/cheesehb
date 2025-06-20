@@ -1,100 +1,147 @@
 /* -------------------------------------------------------------------------- */
-/*  src/app/admin/extras-e-combos/page.tsx                                    */
+/*  src/app/admin/extras-e-combos/page.tsx   –  listagem + modal Novo/Editar  */
 /* -------------------------------------------------------------------------- */
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabaseServerClient } from "@/lib/supabaseServerClient";
-import type { GrupoOpcional } from "@/types";
-import { Plus, Pencil, Trash2 } from "lucide-react";
-
+import { Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BadgeSimNao } from "@/components/admin/BadgeSimNao";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { IconButton } from "@/components/admin/IconButton";
+import { toast } from "@/hooks/use-toast";
+import { supabaseBrowserClient as supabase } from "@/lib/supabaseBrowserClient";
+import type { GrupoOpcional } from "@/types";
+import GrupoForm from "@/components/admin/GrupoForm";
 
-export const dynamic = "force-dynamic";
+export default function AdminExtrasCombosPage() {
+  const [grupos, setGrupos] = useState<GrupoOpcional[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function AdminExtrasCombosPage() {
-  const { data: grupos = [] } = await supabaseServerClient
-    .from("grupos_opcionais")
-    .select("*")
-    .order("ordem", { ascending: true });
+  /* modal controls */
+  const [openForm, setOpenForm] = useState(false);
+  const [grupoEdit, setGrupoEdit] = useState<GrupoOpcional | undefined>();
+
+  async function fetchGrupos() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("grupos_opcionais")
+      .select("*")
+      .order("ordem");
+    if (error)
+      toast({ title: "Erro ao carregar grupos", variant: "destructive" });
+    setGrupos(data ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    fetchGrupos();
+  }, []);
+
+  /* inline toggle status */
+  async function toggleStatus(id: string, v: boolean) {
+    const { error } = await supabase
+      .from("grupos_opcionais")
+      .update({ ativo: v })
+      .eq("id", id);
+    if (error) return toast({ title: "Erro", variant: "destructive" });
+    setGrupos((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, ativo: v } : g))
+    );
+  }
+
+  /* abrir para novo */
+  const openNovo = () => {
+    setGrupoEdit(undefined);
+    setOpenForm(true);
+  };
+
+  /* abrir para edição */
+  const openEditar = (g: GrupoOpcional) => {
+    setGrupoEdit(g);
+    setOpenForm(true);
+  };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 lg:py-16">
-      {/* Cabeçalho -------------------------------------------------------- */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-headline font-bold">
-          Extras&nbsp;&amp;&nbsp;Combos
-        </h1>
-
-        <Button asChild>
-          <Link href="/admin/extras-e-combos/nova">
-            <Plus className="mr-2 h-5 w-5" />
-            Novo&nbsp;Grupo
-          </Link>
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 lg:py-16 space-y-6">
+      <header className="flex items-center justify-between">
+        <h1 className="text-3xl font-headline font-bold">Extras & Combos</h1>
+        <Button onClick={openNovo}>
+          <Plus className="mr-2 h-4 w-4" /> Novo Grupo
         </Button>
       </header>
 
-      {/* Empty-state ------------------------------------------------------ */}
-      {grupos.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-4 py-24 text-center text-muted-foreground">
-          <p className="text-xl font-semibold">
-            Nenhum grupo de opcionais cadastrado.
-          </p>
-          <Button asChild>
-            <Link href="/admin/extras-e-combos/nova">
-              <Plus className="mr-2 h-5 w-5" />
-              Criar primeiro grupo
-            </Link>
-          </Button>
+      <div className="rounded-lg border bg-card">
+        <div className="border-b px-6 py-3 text-sm font-medium">
+          Listagem de Grupos
         </div>
-      )}
-
-      {/* Grade de cards --------------------------------------------------- */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {grupos.map((g: GrupoOpcional) => (
-          <article
-            key={g.id}
-            className="relative rounded-lg border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
-          >
-            {/* título + status */}
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-medium leading-snug">{g.nome}</h2>
-              <BadgeSimNao ativo={g.ativo} />
-            </div>
-
-            {/* info rápida */}
-            <p className="mb-6 text-sm text-muted-foreground">
-              Tipo:&nbsp;
-              {g.tipo_selecao === "RADIO_OBRIGATORIO" && "Escolha Única"}
-              {g.tipo_selecao === "CHECKBOX_OPCIONAL_MULTI" &&
-                "Múltipla Opcional"}
-              {g.tipo_selecao === "CHECKBOX_OBRIGATORIO_MULTI" &&
-                "Múltipla Obrigatória"}
-              {g.max_selecoes
-                ? ` • Máx. ${g.max_selecoes}`
-                : g.min_selecoes
-                ? ` • Min. ${g.min_selecoes}`
-                : null}
-            </p>
-
-            {/* ações */}
-            <div className="flex gap-2">
-              <IconButton
-                icon={Pencil}
-                tooltip="Editar"
-                asLink={`/admin/extras-e-combos/${g.id}/editar`}
-                variant="outline"
-              />
-              <IconButton
-                icon={Trash2}
-                tooltip="Excluir"
-                variant="destructive"
-                /* onClick={() => … } */
-              />
-            </div>
-          </article>
-        ))}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Min</TableHead>
+              <TableHead>Max</TableHead>
+              <TableHead>Instrução</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {grupos.map((g) => (
+              <TableRow key={g.id}>
+                <TableCell>{g.nome}</TableCell>
+                <TableCell>
+                  <Switch
+                    checked={g.ativo}
+                    onCheckedChange={(v) => toggleStatus(g.id, v)}
+                  />
+                </TableCell>
+                <TableCell>
+                  {g.tipo_selecao === "RADIO_OBRIGATORIO" && "Única"}
+                  {g.tipo_selecao === "CHECKBOX_OPCIONAL_MULTI" &&
+                    "Multi (opc.)"}
+                  {g.tipo_selecao === "CHECKBOX_OBRIGATORIO_MULTI" &&
+                    "Multi (obrig.)"}
+                </TableCell>
+                <TableCell>{g.min_selecoes ?? "-"}</TableCell>
+                <TableCell>{g.max_selecoes ?? "-"}</TableCell>
+                <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                  {g.instrucao_personalizada || "–"}
+                </TableCell>
+                <TableCell className="text-right space-x-1">
+                  <IconButton
+                    icon={Pencil}
+                    tooltip="Editar"
+                    onClick={() => openEditar(g)}
+                  />
+                  <IconButton
+                    icon={Trash2}
+                    tooltip="Excluir"
+                    variant="destructive"
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
+
+      {/* Modal Novo / Editar ------------------------------------------------ */}
+      <GrupoForm
+        open={openForm}
+        onOpenChange={setOpenForm}
+        grupo={grupoEdit}
+        onSuccess={fetchGrupos}
+      />
     </div>
   );
 }

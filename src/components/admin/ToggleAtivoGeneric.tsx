@@ -1,51 +1,44 @@
 "use client";
 
-import { useTransition } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState, useTransition } from "react";
 import { toast } from "@/hooks/use-toast";
 import { supabaseBrowserClient } from "@/lib/supabaseBrowserClient";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
-  table: string; // ex: "pizzas_personalizaveis"
+  table: string;
   id: string;
   ativoInicial: boolean;
 }
 
 export default function ToggleAtivoGeneric({ table, id, ativoInicial }: Props) {
-  const [isPending, start] = useTransition();
-  const ativo = ativoInicial;
+  const [ativo, setAtivo] = useState(ativoInicial);
+  const [isPending, startTransition] = useTransition();
 
-  async function toggle() {
-    start(async () => {
+  function toggle() {
+    const novoValor = !ativo;
+
+    // atualiza visualmente imediatamente
+    setAtivo(novoValor);
+
+    startTransition(async () => {
       const { error } = await supabaseBrowserClient
         .from(table)
-        .update({ ativo: !ativo })
-        .eq("id", id)
-        .single();
+        .update({ ativo: novoValor })
+        .eq("id", id);
 
       if (error) {
-        toast({ title: "Erro ao atualizar", variant: "destructive" });
+        toast({ title: "Erro ao atualizar status", variant: "destructive" });
+        setAtivo(ativo); // reverte visualmente
       } else {
-        toast({ title: "Status salvo!" });
-        location.reload(); // simples e eficaz p/ manter SSR
+        toast({
+          title: `Status atualizado para ${novoValor ? "ativo" : "inativo"}`,
+        });
       }
     });
   }
 
   return (
-    <button
-      disabled={isPending}
-      onClick={toggle}
-      className={cn(
-        "px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1",
-        ativo
-          ? "bg-emerald-100 text-emerald-700"
-          : "bg-destructive text-destructive-foreground"
-      )}
-    >
-      {ativo ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-      {ativo ? "Sim" : "Não"}
-    </button>
+    <Switch checked={ativo} onCheckedChange={toggle} disabled={isPending} />
   );
 }
